@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chatbot</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1117;
+      --panel: #1a1d25;
+      --panel-2: #2a2f3a;
+      --accent: #19c37d;
+      --accent-2: #3d9df6;
+      --text: #f7fafc;
+      --muted: #b8c2cc;
+      --error: #ff8a80;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1f2430, #0f1117 55%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    body.light {
+      color-scheme: light;
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --panel-2: #edf1f6;
+      --text: #111827;
+      --muted: #52606d;
+      --error: #d32f2f;
+      --shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    #container {
+      width: min(460px, 100%);
+      height: min(760px, 92vh);
+      background: var(--panel);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 16px 18px;
+      background: linear-gradient(135deg, var(--panel-2), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-weight: 700;
+    }
+
+    .theme-toggle {
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: inherit;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    #chatbox {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      max-width: 82%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.user {
+      background: linear-gradient(135deg, #19c37d, #2dd4bf);
+      color: #072f1d;
+      align-self: flex-end;
+      border-bottom-right-radius: 6px;
+    }
+
+    .msg.bot {
+      background: var(--panel-2);
+      align-self: flex-start;
+      border-bottom-left-radius: 6px;
+    }
+
+    .msg.error {
+      background: rgba(255, 138, 128, 0.16);
+      color: var(--error);
+      align-self: center;
+      border-radius: 14px;
+      font-weight: 600;
+    }
+
+    .status {
+      padding: 0 18px 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #input-area {
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    #chatForm {
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 999px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.08);
+      color: inherit;
+      font-size: 0.98rem;
+    }
+
+    input::placeholder {
+      color: var(--muted);
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #02140c;
+      cursor: pointer;
+      font-weight: 800;
+      padding: 12px 18px;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 0;
+      }
+
+      #container {
+        height: 100vh;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <header>
+      <span>AI Assistant</span>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙</button>
+    </header>
+
+    <div id="chatbox" aria-live="polite">
+      <div class="msg bot">Hello! Main aapki kaise madad kar sakta hoon?</div>
+    </div>
+
+    <div id="status" class="status hidden" aria-live="assertive"></div>
+
+    <div id="input-area">
+      <form id="chatForm">
+        <input id="message" autocomplete="off" placeholder="Type your message..." maxlength="1000">
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const chatbox = document.getElementById('chatbox');
+    const chatForm = document.getElementById('chatForm');
+    const messageInput = document.getElementById('message');
+    const sendBtn = document.getElementById('sendBtn');
+    const status = document.getElementById('status');
+    const themeToggle = document.getElementById('themeToggle');
+
+    function appendMessage(role, text) {
+      const msg = document.createElement('div');
+      msg.className = `msg ${role}`;
+      msg.textContent = text;
+      chatbox.appendChild(msg);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function setLoading(isLoading) {
+      sendBtn.disabled = isLoading;
+      sendBtn.textContent = isLoading ? 'Sending…' : 'Send';
+      messageInput.disabled = isLoading;
+
+      if (isLoading) {
+        status.textContent = 'AI soch raha hai...';
+        status.classList.remove('hidden');
+      } else {
+        status.textContent = '';
+        status.classList.add('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+      const isLight = document.body.classList.contains('light');
+      themeToggle.textContent = isLight ? '☀️' : '🌙';
+      themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+    }
+
+    async function sendMsg(event) {
+      if (event) {
+        event.preventDefault();
+      }
+
+      const text = messageInput.value.trim();
+      if (!text || sendBtn.disabled) {
+        return;
+      }
+
+      appendMessage('user', text);
+      messageInput.value = '';
+      setLoading(true);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      try {
+        const response = await fetch('/get-response', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message: text }),
+          signal: controller.signal
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        const reply = typeof data.response === 'string' && data.response.trim()
+          ? data.response.trim()
+          : 'Sorry, I could not generate a response.';
+
+        appendMessage('bot', reply);
+      } catch (error) {
+        const message = error.name === 'AbortError'
+          ? 'The request took too long. Please try again.'
+          : 'Could not connect to the chatbot right now. Please try again.';
+
+        appendMessage('error', message);
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
+    }
+
+    themeToggle.addEventListener('click', toggleTheme);
+    chatForm.addEventListener('submit', sendMsg);
+  </script>
+</body>
+</html>
